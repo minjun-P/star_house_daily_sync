@@ -1,6 +1,6 @@
-import { Company } from "./entities/company";
-import { StockMarketData } from "./entities/stock_market_data";
-import { DataSource } from "typeorm";
+import { Company } from './entities/company';
+import { StockMarketData } from './entities/stock_market_data';
+import { DataSource } from 'typeorm';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
