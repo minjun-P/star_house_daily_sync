@@ -11,8 +11,9 @@ export class Company {
   // 상장 회사 주식 코드
   @Column()
   symbol: string;
+  @Column()
+  exchangeShortName: string;
   // 참조 -> 어느 회사의 거래 데이터인지
-
   @OneToMany(
     () => StockMarketData,
     (stockMarketData) => stockMarketData.company,

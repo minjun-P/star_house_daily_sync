@@ -4,9 +4,8 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js",
-    "dev": "ts-node src/index.ts",
-    "dev:watch": "nodemon --watch 'src/**/*.ts' --exec 'ts-node' src/index.ts"
+    "start:market_sync": "node dist/market_sync.js",
+    "start:company_sync": "node dist/company_sync.js"
   },
   "keywords": [],
   "author": "",
@@ -22,6 +21,8 @@
     "typescript": "^5.7.3"
   },
   "dependencies": {
+    "axios": "^1.7.9",
+    "dotenv": "^16.4.7",
     "pg": "^8.13.1",
     "reflect-metadata": "^0.2.2",
     "typeorm": "^0.3.20"
