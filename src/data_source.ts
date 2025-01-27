@@ -4,11 +4,12 @@ import { DataSource } from 'typeorm';
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
 import 'dotenv/config';
 
-console.log(process.env.DB_HOST);
-console.log(process.env.DB_PORT);
-console.log(process.env.POSTGRES_USER);
-console.log(process.env.POSTGRES_PASSWORD);
-console.log(process.env.POSTGRES_DB);
+console.log(`-------DB ENV SETTING-------`);
+console.log(`DB_HOST: ${process.env.DB_HOST}`);
+console.log(`DB_PORT: ${process.env.DB_PORT}`);
+console.log(`POSTGRES_USER: ${process.env.POSTGRES_USER}`);
+console.log(`POSTGRES_PASSWORD: ${process.env.POSTGRES_PASSWORD}`);
+console.log(`POSTGRES_DB: ${process.env.POSTGRES_DB}`);
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
