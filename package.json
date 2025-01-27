@@ -4,8 +4,8 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "start:market_sync": "node dist/market_sync.js",
-    "start:company_sync": "node dist/company_sync.js"
+    "start:market_sync": "node dist/market_sync/market_sync.js",
+    "start:company_sync": "node dist/company_sync/company_sync.js"
   },
   "keywords": [],
   "author": "",
@@ -25,6 +25,8 @@
     "dotenv": "^16.4.7",
     "pg": "^8.13.1",
     "reflect-metadata": "^0.2.2",
-    "typeorm": "^0.3.20"
+    "typeorm": "^0.3.20",
+    "typeorm-naming-strategies": "^4.1.0",
+    "yahoo-finance2": "^2.13.3"
   }
 }

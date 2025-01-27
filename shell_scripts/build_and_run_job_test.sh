@@ -1,0 +1,13 @@
+gcloud run jobs deploy company-sync \
+    --source . \
+    --tasks 1 \
+    --set-env-vars POSTGRES_USER=main-client \
+    --set-env-vars POSTGRES_PASSWORD=23899928 \
+    --set-env-vars POSTGRES_DB=basic \
+    --set-env-vars DB_HOST=10.0.1.3 \
+    --set-env-vars DB_PORT=5432 \
+    --set-env-vars DB_SYNCHRONIZE=true \
+    --set-env-vars FMP_API_KEY=BLE0pFvAuIbtfEnOih0hrFSabSyEVM1k \
+    --max-retries 5 \
+    --region asia-northeast3 \
+    --project=star-house-nasdaq

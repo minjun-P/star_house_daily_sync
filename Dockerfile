@@ -13,4 +13,4 @@ COPY package*.json ./
 RUN npm install --omit=dev
 COPY --from=builder /app/dist ./dist
 EXPOSE 3000
-CMD ["node", "dist/index.js"]
+CMD ["npm", "run", "start:market_sync"]

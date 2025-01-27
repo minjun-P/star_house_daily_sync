@@ -21,8 +21,8 @@ export class StockMarketData {
   low: number;
   @Column({ type: 'float8' })
   close: number;
-  @Column({ type: 'float8' })
-  adjclose: number;
+  @Column({type : 'float8'})
+  priceChangeRate: number;
   @Column({ type: 'int8' })
   volume: number;
   // 참조 -> 어느 회사의 거래 데이터인지

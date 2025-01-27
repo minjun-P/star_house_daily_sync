@@ -1,6 +1,7 @@
 import { Company } from './entities/company';
 import { StockMarketData } from './entities/stock_market_data';
 import { DataSource } from 'typeorm';
+import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
 import 'dotenv/config';
 
 console.log(process.env.DB_HOST);
@@ -17,6 +18,6 @@ export const AppDataSource = new DataSource({
   password: process.env.POSTGRES_PASSWORD,
   database: process.env.POSTGRES_DB,
   entities: [Company, StockMarketData],
+  namingStrategy: new SnakeNamingStrategy(),
   synchronize: process.env.DB_SYNCHRONIZE === 'true',
-  logging: true,
 });
