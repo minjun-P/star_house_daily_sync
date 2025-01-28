@@ -9,7 +9,7 @@ import { EXCHANGE_NATION_MAP, InterestingExchange } from '../core';
 import { debugLog, parseDateToDashFormat } from '../util';
 const DELAY_MS = 100;
 
-const periodLowerBound = new Date('2020-01-01');
+const periodLowerBound = new Date('2022-01-01');
 const SAVE_BATCH_SIZE = 2000;
 const { CLOUD_RUN_TASK_INDEX, CLOUD_RUN_TASK_COUNT } = process.env;
 
@@ -70,7 +70,7 @@ async function main() {
     // first, check each companies' aleary fetched, latest  market data date
 
     const latestFetchedMarketDate = latestDatesMap.get(targetCompnay.id);
-    let queryStartDate = periodLowerBound;
+    let queryStartDate = new Date(periodLowerBound);
     if (latestFetchedMarketDate) {
       queryStartDate = new Date(latestFetchedMarketDate);
       queryStartDate.setDate(queryStartDate.getDate() + 1);
