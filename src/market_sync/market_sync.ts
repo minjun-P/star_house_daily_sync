@@ -10,7 +10,7 @@ import { debugLog, parseDateToDashFormat } from '../util';
 const DELAY_MS = 100;
 
 const periodLowerBound = new Date('2022-01-01');
-const SAVE_BATCH_SIZE = 2000;
+const SAVE_BATCH_SIZE = 1000;
 const { CLOUD_RUN_TASK_INDEX, CLOUD_RUN_TASK_COUNT } = process.env;
 
 async function main() {
@@ -64,6 +64,7 @@ async function main() {
   console.log('STEP2) Checking Latest Market Dates Done');
 
   let marketDataEntitiesToSave: StockMarketData[] = [];
+  let cumulativeSaveCount = 0;
   console.log('STEP3) Staring Fetching Market Data And Saving');
   for (let i = 0; i < filteredCompaniesByTaskNumber.length; i += 1) {
     const targetCompnay = filteredCompaniesByTaskNumber[i];
@@ -141,8 +142,8 @@ async function main() {
     );
 
     marketDataEntitiesToSave.push(...uniqueEntities);
-    // 누적 10000개 이상 쌓였을 때 한번 저장하고 초기화해주기
-    if (marketDataEntitiesToSave.length >= 10000) {
+    // 누적 10000개 이상 쌓였을 때 한번 저장하고 초기화해주기 || 혹은, 마지막 순회일 때 저장
+    if (marketDataEntitiesToSave.length >= 10000 || i === filteredCompaniesByTaskNumber.length - 1) {
       // 반복문 순회하면 BATCH_SIZE만큼씩 나눠서 저장
       for (
         let i = 0;
@@ -155,15 +156,13 @@ async function main() {
         );
         debugLog(`Saving Entities... In BATCH`);
         await marketDataRepository.insert(slicedEntities);
+        cumulativeSaveCount += slicedEntities.length;
+        console.log(`STEP3) Saving Market Data... Cumulative Count : ${cumulativeSaveCount}`);
       }
       marketDataEntitiesToSave = [];
     }
   }
-  // 기업 순회가 끝난 뒤에 아직 청산되지 못한 데이터가 남아있으면 저장해주기
-  if (marketDataEntitiesToSave.length > 0) {
-    debugLog(`Saving Remain Entities...`);
-    await marketDataRepository.insert(marketDataEntitiesToSave);
-  }
+
   console.log('STEP3) Fetching Market Data And Saving DONE');
   console.log(`----Market Sync Task Done!!-----`);
 }
