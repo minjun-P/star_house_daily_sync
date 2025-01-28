@@ -6,11 +6,11 @@ import { In } from 'typeorm';
 import yahooFinance from 'yahoo-finance2';
 import { StockMarketData } from '../entities/stock_market_data';
 import { EXCHANGE_NATION_MAP, InterestingExchange } from '../core';
-import { parseDateToDashFormat } from '../util';
+import { debugLog, parseDateToDashFormat } from '../util';
 const DELAY_MS = 100;
 
 const periodLowerBound = new Date('2020-01-01');
-const SAVE_BATCH_SIZE = 1000;
+const SAVE_BATCH_SIZE = 2000;
 const { CLOUD_RUN_TASK_INDEX, CLOUD_RUN_TASK_COUNT } = process.env;
 
 async function main() {
@@ -23,9 +23,7 @@ async function main() {
       ? EXCHANGE_NATION_MAP['US']
       : [...EXCHANGE_NATION_MAP['KR'], ...EXCHANGE_NATION_MAP['US']];
 
-  console.log(
-    `${consolePrefix()} Start Market Sync Task nationCode:${nationCode}`,
-  );
+  console.log(`Start Market Sync Task nationCode:${nationCode}`);
   const allCompnaies = await AppDataSource.getRepository(Company).find({
     select: ['symbol', 'id', 'name', 'nation'],
     where: {
@@ -38,12 +36,9 @@ async function main() {
       Number(CLOUD_RUN_TASK_INDEX ?? 0)
     );
   });
-  console.log(
-    `${consolePrefix()} Target Companies Length : `,
-    filteredCompaniesByTaskNumber.length,
-  );
+  debugLog(`Target Companies Length : `, filteredCompaniesByTaskNumber.length);
   const marketDataRepository = AppDataSource.getRepository(StockMarketData);
-  const latestMarketDates = await AppDataSource.getRepository(StockMarketData)
+  const latestMarketDates = await marketDataRepository
     .createQueryBuilder('stockData')
     .select(`to_char(MAX(stockData.date)::DATE, 'YYYY-MM-dd')`, 'latestDate')
     .addSelect('stockData.company_id', 'companyId')
@@ -55,14 +50,16 @@ async function main() {
     .groupBy('stockData.company_id')
     .getRawMany();
 
+  // 위 쿼리를 통해 어차피 max date가 없는 경우는 애초에 쿼리 결과에 포함되지 않고 생략됨.
+  // 그래서 아래 map에 없는 경우에는 아예 데이터가 없는 것으로 여기고 작업하면 됨.
   const latestDatesMap = new Map(
     latestMarketDates.map((row) => [
       Number(row.companyId),
       new Date(row.latestDate),
     ]),
   );
-  console.log(latestDatesMap);
-  console.log(`${consolePrefix()} Fetching Latest Market Dates Done`);
+  debugLog(`Fetching Latest Market Dates Done`);
+  debugLog(`Latest Dates Map : ${latestDatesMap}`);
 
   let marketDataEntitiesToSave: StockMarketData[] = [];
 
@@ -77,17 +74,15 @@ async function main() {
       queryStartDate.setDate(queryStartDate.getDate() + 1);
     }
     if (queryStartDate > new Date()) {
-      console.log(
-        `${consolePrefix()} Company ${targetCompnay.name}(${
-          targetCompnay.symbol
-        }) is already up-to-date`,
+      debugLog(
+        `Company ${targetCompnay.name}(${targetCompnay.symbol}) is already up-to-date`,
       );
       continue;
     }
-    console.log(
-      `${consolePrefix()} Fetching Market Data for Company : ${
-        targetCompnay.name
-      }(${targetCompnay.symbol}) from ${queryStartDate.toISOString()}`,
+    debugLog(
+      `Fetching Market Data for Company : ${targetCompnay.name}(${
+        targetCompnay.symbol
+      }) from ${queryStartDate.toISOString()}`,
     );
     const quotes = await yahooFinance
       .chart(targetCompnay.symbol, {
@@ -139,43 +134,35 @@ async function main() {
       }
       return uniqueAmongEntities;
     });
-    console.log(
-      `${consolePrefix()} Remove Redundance of Date Process Done, (Before: ${
-        notNullEntities.length
-      }, After: ${uniqueEntities.length})`,
+    debugLog(
+      `Remove Redundance of Date Process Done, (Before: ${notNullEntities.length}, After: ${uniqueEntities.length})`,
     );
-    
-    marketDataEntitiesToSave.push(...uniqueEntities);
 
-    const totalBatchCycleCount = Math.ceil(
-      marketDataEntitiesToSave.length / SAVE_BATCH_SIZE,
-    );
-    if (marketDataEntitiesToSave.length > 10000) {
-      for (let i = 0; i < marketDataEntitiesToSave.length; i += SAVE_BATCH_SIZE) {
-        console.log(
-          `${consolePrefix()} Saving Batch... ${
-            Math.floor(i / SAVE_BATCH_SIZE) + 1
-          }/ ${totalBatchCycleCount}`,
-        );
+    marketDataEntitiesToSave.push(...uniqueEntities);
+    // 누적 10000개 이상 쌓였을 때 한번 저장하고 초기화해주기
+    if (marketDataEntitiesToSave.length >= 10000) {
+      // 반복문 순회하면 BATCH_SIZE만큼씩 나눠서 저장
+      for (
+        let i = 0;
+        i < marketDataEntitiesToSave.length;
+        i += SAVE_BATCH_SIZE
+      ) {
         const slicedEntities = marketDataEntitiesToSave.slice(
           i,
           i + SAVE_BATCH_SIZE,
         );
-        console.log(`${consolePrefix()} Saving Entities...`);
+        debugLog(`Saving Entities... In BATCH`);
         await marketDataRepository.insert(slicedEntities);
-        marketDataEntitiesToSave = [];
       }
+      marketDataEntitiesToSave = [];
     }
   }
+  // 기업 순회가 끝난 뒤에 아직 청산되지 못한 데이터가 남아있으면 저장해주기
   if (marketDataEntitiesToSave.length > 0) {
-    console.log(`${consolePrefix()} Saving Remain Entities...`);
+    debugLog(`Saving Remain Entities...`);
     await marketDataRepository.insert(marketDataEntitiesToSave);
   }
-  console.log(`${consolePrefix()} Market Sync Task Done`);
-}
-
-function consolePrefix() {
-  return `[${CLOUD_RUN_TASK_INDEX}/${CLOUD_RUN_TASK_COUNT}]`;
+  console.log(`----Market Sync Task Done!!-----`);
 }
 
 function delay(ms: number) {

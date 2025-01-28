@@ -1,3 +1,5 @@
+const { CLOUD_RUN_TASK_INDEX, CLOUD_RUN_TASK_COUNT } = process.env;
+
 const parseDateToDashFormat = (date: Date): string => {
   const year = date.getUTCFullYear();
   const month = date.getUTCMonth() + 1;
@@ -8,4 +10,15 @@ const parseDateToDashFormat = (date: Date): string => {
   return `${year}-${paddedMonth}-${paddedDay}`;
 };
 
-export { parseDateToDashFormat };
+function debugLog(message: any, ...optionalParams: any[]) {
+  const needsLog = process.env.NEEDS_LOG === 'true';
+  if (needsLog) {
+    console.log(`${consolePrefix()} ${message}`, ...optionalParams);
+  }
+}
+
+function consolePrefix() {
+  return `[${CLOUD_RUN_TASK_INDEX}/${CLOUD_RUN_TASK_COUNT}]`;
+}
+
+export { parseDateToDashFormat, debugLog };
