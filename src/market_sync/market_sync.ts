@@ -36,6 +36,7 @@ async function main() {
       Number(CLOUD_RUN_TASK_INDEX ?? 0)
     );
   });
+  console.log('STEP1) Filtering Companies By Task Number');
   debugLog(`Target Companies Length : `, filteredCompaniesByTaskNumber.length);
   const marketDataRepository = AppDataSource.getRepository(StockMarketData);
   const latestMarketDates = await marketDataRepository
@@ -60,9 +61,10 @@ async function main() {
   );
   debugLog(`Fetching Latest Market Dates Done`);
   debugLog(`Latest Dates Map : ${latestDatesMap}`);
+  console.log('STEP2) Checking Latest Market Dates Done');
 
   let marketDataEntitiesToSave: StockMarketData[] = [];
-
+  console.log('STEP3) Staring Fetching Market Data And Saving');
   for (let i = 0; i < filteredCompaniesByTaskNumber.length; i += 1) {
     const targetCompnay = filteredCompaniesByTaskNumber[i];
     // first, check each companies' aleary fetched, latest  market data date
@@ -162,6 +164,7 @@ async function main() {
     debugLog(`Saving Remain Entities...`);
     await marketDataRepository.insert(marketDataEntitiesToSave);
   }
+  console.log('STEP3) Fetching Market Data And Saving DONE');
   console.log(`----Market Sync Task Done!!-----`);
 }
 
