@@ -68,9 +68,6 @@ async function main() {
 
   for (let i = 0; i < filteredCompaniesByTaskNumber.length; i += 1) {
     const targetCompnay = filteredCompaniesByTaskNumber[i];
-    if (targetCompnay.symbol !== 'IBHE') {
-      continue;
-    }
     // first, check each companies' aleary fetched, latest  market data date
 
     const latestFetchedMarketDate = latestDatesMap.get(targetCompnay.id);
