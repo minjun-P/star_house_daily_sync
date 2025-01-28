@@ -6,12 +6,15 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { Company } from './company';
+import { parseDateToDashFormat } from '../util';
 
 @Entity()
 export class StockMarketData {
   @PrimaryGeneratedColumn()
   id: number;
-  @Column({ type: 'date' })
+  @Column({
+    type: 'date',
+  })
   date: Date;
   @Column({ type: 'float8' })
   high: number;
@@ -21,7 +24,7 @@ export class StockMarketData {
   low: number;
   @Column({ type: 'float8' })
   close: number;
-  @Column({type : 'float8'})
+  @Column({ type: 'float8' })
   priceChangeRate: number;
   @Column({ type: 'int8' })
   volume: number;

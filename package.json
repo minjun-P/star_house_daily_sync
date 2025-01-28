@@ -4,8 +4,9 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "start:market_sync": "node dist/market_sync/market_sync.js",
-    "start:company_sync": "node dist/company_sync/company_sync.js"
+    "start:market_sync": "npx ts-node src/market_sync/market_sync.ts",
+    "start:company_sync": "npx ts-node src/company_sync/company_sync.ts",
+    "typeorm": "typeorm-ts-node-commonjs"
   },
   "keywords": [],
   "author": "",

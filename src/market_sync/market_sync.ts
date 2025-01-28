@@ -5,24 +5,37 @@ import 'dotenv/config';
 import { In } from 'typeorm';
 import yahooFinance from 'yahoo-finance2';
 import { StockMarketData } from '../entities/stock_market_data';
+import { EXCHANGE_NATION_MAP, InterestingExchange } from '../core';
+import { parseDateToDashFormat } from '../util';
 const DELAY_MS = 100;
-const interestingExchanges = ['NASDAQ', 'NYSE', 'AMEX', 'KSC', 'KOE'];
-const periodLowerBound = new Date('2020-01-01');
 
+const periodLowerBound = new Date('2020-01-01');
+const SAVE_BATCH_SIZE = 1000;
 const { CLOUD_RUN_TASK_INDEX, CLOUD_RUN_TASK_COUNT } = process.env;
 
 async function main() {
   await AppDataSource.initialize();
-  console.log(`${consolePrefix()} Start Market Sync Task`);
+  const nationCode = process.env.NATION_CODE;
+  const interestingExchanges: InterestingExchange[] =
+    nationCode === 'KR'
+      ? EXCHANGE_NATION_MAP['KR']
+      : nationCode === 'US'
+      ? EXCHANGE_NATION_MAP['US']
+      : [...EXCHANGE_NATION_MAP['KR'], ...EXCHANGE_NATION_MAP['US']];
+
+  console.log(
+    `${consolePrefix()} Start Market Sync Task nationCode:${nationCode}`,
+  );
   const allCompnaies = await AppDataSource.getRepository(Company).find({
-    select: ['symbol', 'id', 'name'],
+    select: ['symbol', 'id', 'name', 'nation'],
     where: {
       exchangeShortName: In(interestingExchanges),
     },
   });
   const filteredCompaniesByTaskNumber = allCompnaies.filter((company) => {
     return (
-      company.id % Number(CLOUD_RUN_TASK_COUNT) === Number(CLOUD_RUN_TASK_INDEX)
+      company.id % Number(CLOUD_RUN_TASK_COUNT ?? 1000) ===
+      Number(CLOUD_RUN_TASK_INDEX ?? 0)
     );
   });
   console.log(
@@ -32,14 +45,14 @@ async function main() {
   const marketDataRepository = AppDataSource.getRepository(StockMarketData);
   const latestMarketDates = await AppDataSource.getRepository(StockMarketData)
     .createQueryBuilder('stockData')
-    .select('MAX(stockData.date)', 'latestDate')
-    .addSelect('stockData.companyId', 'companyId')
-    .where('stockData.companyId IN (:...targetCompanyIds)', {
+    .select(`to_char(MAX(stockData.date)::DATE, 'YYYY-MM-dd')`, 'latestDate')
+    .addSelect('stockData.company_id', 'companyId')
+    .where('stockData.company_id IN (:...targetCompanyIds)', {
       targetCompanyIds: filteredCompaniesByTaskNumber.map(
         (company) => company.id,
       ),
     }) // WHERE 조건 추가
-    .groupBy('stockData.companyId')
+    .groupBy('stockData.company_id')
     .getRawMany();
 
   const latestDatesMap = new Map(
@@ -48,12 +61,16 @@ async function main() {
       new Date(row.latestDate),
     ]),
   );
+  console.log(latestDatesMap);
   console.log(`${consolePrefix()} Fetching Latest Market Dates Done`);
 
   const marketDataEntitiesToSave: StockMarketData[] = [];
 
   for (let i = 0; i < filteredCompaniesByTaskNumber.length; i += 1) {
     const targetCompnay = filteredCompaniesByTaskNumber[i];
+    if (targetCompnay.symbol !== 'IBHE') {
+      continue;
+    }
     // first, check each companies' aleary fetched, latest  market data date
 
     const latestFetchedMarketDate = latestDatesMap.get(targetCompnay.id);
@@ -62,10 +79,18 @@ async function main() {
       queryStartDate = new Date(latestFetchedMarketDate);
       queryStartDate.setDate(queryStartDate.getDate() + 1);
     }
+    if (queryStartDate > new Date()) {
+      console.log(
+        `${consolePrefix()} Company ${targetCompnay.name}(${
+          targetCompnay.symbol
+        }) is already up-to-date`,
+      );
+      continue;
+    }
     console.log(
       `${consolePrefix()} Fetching Market Data for Company : ${
         targetCompnay.name
-      }(${targetCompnay.symbol})`,
+      }(${targetCompnay.symbol}) from ${queryStartDate.toISOString()}`,
     );
     const quotes = await yahooFinance
       .chart(targetCompnay.symbol, {
@@ -75,8 +100,9 @@ async function main() {
       .then((e) => e.quotes);
     await delay(DELAY_MS);
     const entities = quotes.map((quote) => {
+      console.log(quote);
       const entity = new StockMarketData();
-      const date = new Date(quote.date);
+      const date = new Date(parseDateToDashFormat(quote.date));
       const high = quote.high;
       const low = quote.low;
       const open = quote.open;
@@ -101,13 +127,50 @@ async function main() {
       entity.company = targetCompnay;
       return entity;
     });
-    const filteredEntities = entities.filter((e) => e !== null);
-    marketDataEntitiesToSave.push(...filteredEntities);
+
+    const notNullEntities = entities.filter((e) => e !== null);
+
+    // date를 기준으로 중복 제거
+    const uniqueEntities = notNullEntities.filter((entity, index, self) => {
+      const uniqueAmongEntities =
+        index ===
+        self.findIndex((t) => t.date.getTime() === entity.date.getTime());
+      if (latestFetchedMarketDate) {
+        return (
+          entity.date.getTime() > latestFetchedMarketDate.getTime() &&
+          uniqueAmongEntities
+        );
+      }
+      return uniqueAmongEntities;
+    });
+    console.log(
+      `${consolePrefix()} Remove Redundance of Date Process Done, (Before: ${
+        notNullEntities.length
+      }, After: ${uniqueEntities.length})`,
+    );
+    marketDataEntitiesToSave.push(...uniqueEntities);
   }
   console.log(
-    `${consolePrefix()} All Market Data Fetching Done, Now Saving in DB....`,
+    `${consolePrefix()} All Market Data Fetching Done, Now Saving in DB.... total row count: ${
+      marketDataEntitiesToSave.length
+    }`,
   );
-  await marketDataRepository.save(marketDataEntitiesToSave);
+  const totalBatchCycleCount = Math.ceil(
+    marketDataEntitiesToSave.length / SAVE_BATCH_SIZE,
+  );
+
+  for (let i = 0; i < marketDataEntitiesToSave.length; i += SAVE_BATCH_SIZE) {
+    console.log(
+      `${consolePrefix()} Saving Batch... ${
+        Math.floor(i / SAVE_BATCH_SIZE) + 1
+      }/ ${totalBatchCycleCount}`,
+    );
+    const slicedEntities = marketDataEntitiesToSave.slice(
+      i,
+      i + SAVE_BATCH_SIZE,
+    );
+    await marketDataRepository.insert(slicedEntities);
+  }
   console.log(`${consolePrefix()} Market Sync Task Done`);
 }
 

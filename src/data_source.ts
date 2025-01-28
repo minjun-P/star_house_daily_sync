@@ -20,5 +20,5 @@ export const AppDataSource = new DataSource({
   database: process.env.POSTGRES_DB,
   entities: [Company, StockMarketData],
   namingStrategy: new SnakeNamingStrategy(),
-  synchronize: process.env.DB_SYNCHRONIZE === 'true',
+  migrations: ['src/migrations/*.ts'],
 });
