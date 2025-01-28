@@ -64,7 +64,7 @@ async function main() {
   console.log(latestDatesMap);
   console.log(`${consolePrefix()} Fetching Latest Market Dates Done`);
 
-  const marketDataEntitiesToSave: StockMarketData[] = [];
+  let marketDataEntitiesToSave: StockMarketData[] = [];
 
   for (let i = 0; i < filteredCompaniesByTaskNumber.length; i += 1) {
     const targetCompnay = filteredCompaniesByTaskNumber[i];
@@ -97,7 +97,6 @@ async function main() {
       .then((e) => e.quotes);
     await delay(DELAY_MS);
     const entities = quotes.map((quote) => {
-      console.log(quote);
       const entity = new StockMarketData();
       const date = new Date(parseDateToDashFormat(quote.date));
       const high = quote.high;
@@ -145,28 +144,32 @@ async function main() {
         notNullEntities.length
       }, After: ${uniqueEntities.length})`,
     );
+    
     marketDataEntitiesToSave.push(...uniqueEntities);
-  }
-  console.log(
-    `${consolePrefix()} All Market Data Fetching Done, Now Saving in DB.... total row count: ${
-      marketDataEntitiesToSave.length
-    }`,
-  );
-  const totalBatchCycleCount = Math.ceil(
-    marketDataEntitiesToSave.length / SAVE_BATCH_SIZE,
-  );
 
-  for (let i = 0; i < marketDataEntitiesToSave.length; i += SAVE_BATCH_SIZE) {
-    console.log(
-      `${consolePrefix()} Saving Batch... ${
-        Math.floor(i / SAVE_BATCH_SIZE) + 1
-      }/ ${totalBatchCycleCount}`,
+    const totalBatchCycleCount = Math.ceil(
+      marketDataEntitiesToSave.length / SAVE_BATCH_SIZE,
     );
-    const slicedEntities = marketDataEntitiesToSave.slice(
-      i,
-      i + SAVE_BATCH_SIZE,
-    );
-    await marketDataRepository.insert(slicedEntities);
+    if (marketDataEntitiesToSave.length > 10000) {
+      for (let i = 0; i < marketDataEntitiesToSave.length; i += SAVE_BATCH_SIZE) {
+        console.log(
+          `${consolePrefix()} Saving Batch... ${
+            Math.floor(i / SAVE_BATCH_SIZE) + 1
+          }/ ${totalBatchCycleCount}`,
+        );
+        const slicedEntities = marketDataEntitiesToSave.slice(
+          i,
+          i + SAVE_BATCH_SIZE,
+        );
+        console.log(`${consolePrefix()} Saving Entities...`);
+        await marketDataRepository.insert(slicedEntities);
+        marketDataEntitiesToSave = [];
+      }
+    }
+  }
+  if (marketDataEntitiesToSave.length > 0) {
+    console.log(`${consolePrefix()} Saving Remain Entities...`);
+    await marketDataRepository.insert(marketDataEntitiesToSave);
   }
   console.log(`${consolePrefix()} Market Sync Task Done`);
 }
