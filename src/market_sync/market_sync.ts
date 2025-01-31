@@ -40,6 +40,7 @@ async function main() {
   console.log('STEP1) Filtering Companies By Task Number');
   debugLog(`Target Companies Length : `, filteredCompaniesByTaskNumber.length);
   const marketDataRepository = AppDataSource.getRepository(StockMarketData);
+  // 무거운 쿼리이지만 desc date index를 해당 테이블에 세팅함으로써 속도 향상을 꾀하였음.
   const latestMarketDates = await marketDataRepository
     .createQueryBuilder('stockData')
     .select(`to_char(MAX(stockData.date)::DATE, 'YYYY-MM-dd')`, 'latestDate')
