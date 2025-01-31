@@ -180,7 +180,8 @@ async function main() {
           i + SAVE_BATCH_SIZE,
         );
         debugLog(`Saving Entities... In BATCH`);
-        // await marketDataRepository.insert(slicedEntities);
+        // upsert를 통해, comapny,date unique constraints를 지키며 저장한다.
+        await marketDataRepository.upsert(slicedEntities, ['company', 'date']);
         cumulativeSaveCount += slicedEntities.length;
         console.log(
           `STEP3) Saving Market Data... Cumulative Count : ${cumulativeSaveCount}`,

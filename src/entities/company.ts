@@ -1,7 +1,14 @@
-import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  Entity,
+  OneToMany,
+  PrimaryGeneratedColumn,
+  Unique,
+} from 'typeorm';
 import { StockMarketData } from './stock_market_data';
 
 @Entity()
+@Unique(['symbol'])
 export class Company {
   @PrimaryGeneratedColumn()
   id: number;
@@ -13,10 +20,7 @@ export class Company {
   symbol: string;
   @Column()
   exchangeShortName: string;
-  @Column({
-    type: 'varchar',
-    // length: 256,
-  })
+  @Column()
   nation: string;
   // 참조 -> 어느 회사의 거래 데이터인지
   @OneToMany(
