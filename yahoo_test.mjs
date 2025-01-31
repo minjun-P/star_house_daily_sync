@@ -10,14 +10,21 @@ const parseDateToDashFormat = (date) => {
 //183490.KQ
 // TSLA
 const fetchData = async () => {
-  const query = 'IBHE';
+  const query = 'LUCYW';
   const queryOptions = {
-    period1: '2025-01-20',
+    period1: '2025-01-01',
     interval: '1d',
   };
-  const result = await yahooFinance.chart(query, queryOptions);
-  const quotes = result.quotes;
-  console.log(quotes);
+  try {
+    const result = await yahooFinance.chart(query, queryOptions);
+    const quotes = result.quotes;
+    console.log(quotes);
+  } catch (error) {
+    console.log('Error 발생');
+    console.log(typeof error);
+    console.log(error.type);
+    console.log(error.message);
+  }
 };
 
 fetchData();

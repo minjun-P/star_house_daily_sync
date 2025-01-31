@@ -7,11 +7,12 @@ import yahooFinance from 'yahoo-finance2';
 import { StockMarketData } from '../entities/stock_market_data';
 import { EXCHANGE_NATION_MAP, InterestingExchange } from '../core';
 import { debugLog, parseDateToDashFormat } from '../util';
+import { exit } from 'process';
 const DELAY_MS = 100;
 
 const periodLowerBound = new Date('2022-01-01');
 const SAVE_BATCH_SIZE = 1000;
-const { CLOUD_RUN_TASK_INDEX, CLOUD_RUN_TASK_COUNT } = process.env;
+const { CLOUD_RUN_TASK_INDEX = 0, CLOUD_RUN_TASK_COUNT = 300 } = process.env;
 
 async function main() {
   await AppDataSource.initialize();
@@ -65,6 +66,7 @@ async function main() {
 
   let marketDataEntitiesToSave: StockMarketData[] = [];
   let cumulativeSaveCount = 0;
+  let cumulativeFetchErrorCount = 0;
   console.log('STEP3) Staring Fetching Market Data And Saving');
   for (let i = 0; i < filteredCompaniesByTaskNumber.length; i += 1) {
     const targetCompnay = filteredCompaniesByTaskNumber[i];
@@ -87,13 +89,33 @@ async function main() {
         targetCompnay.symbol
       }) from ${queryStartDate.toISOString()}`,
     );
-    const quotes = await yahooFinance
-      .chart(targetCompnay.symbol, {
-        period1: queryStartDate,
-        interval: '1d',
-      })
-      .then((e) => e.quotes);
-    await delay(DELAY_MS);
+    let quotes: {
+      adjclose?: number | null | undefined;
+      date: Date;
+      high: number | null;
+      low: number | null;
+      open: number | null;
+      close: number | null;
+      volume: number | null;
+    }[];
+    try {
+      quotes = await yahooFinance
+        .chart(targetCompnay.symbol, {
+          period1: queryStartDate,
+          interval: '1d',
+        })
+        .then((e) => e.quotes);
+      await delay(DELAY_MS);
+    } catch (error) {
+      // 에러 발생 시 그냥 다음 회사로 넘어가도록 하자.
+      console.error(
+        `Error Occured while fetching market data for ${targetCompnay.name}(${targetCompnay.symbol})`,
+      );
+      console.log(error);
+      cumulativeFetchErrorCount += 1;
+      continue;
+    }
+
     const entities = quotes.map((quote) => {
       const entity = new StockMarketData();
       const date = new Date(parseDateToDashFormat(quote.date));
@@ -143,7 +165,10 @@ async function main() {
 
     marketDataEntitiesToSave.push(...uniqueEntities);
     // 누적 10000개 이상 쌓였을 때 한번 저장하고 초기화해주기 || 혹은, 마지막 순회일 때 저장
-    if (marketDataEntitiesToSave.length >= 10000 || i === filteredCompaniesByTaskNumber.length - 1) {
+    if (
+      marketDataEntitiesToSave.length >= 10000 ||
+      i === filteredCompaniesByTaskNumber.length - 1
+    ) {
       // 반복문 순회하면 BATCH_SIZE만큼씩 나눠서 저장
       for (
         let i = 0;
@@ -155,9 +180,11 @@ async function main() {
           i + SAVE_BATCH_SIZE,
         );
         debugLog(`Saving Entities... In BATCH`);
-        await marketDataRepository.insert(slicedEntities);
+        // await marketDataRepository.insert(slicedEntities);
         cumulativeSaveCount += slicedEntities.length;
-        console.log(`STEP3) Saving Market Data... Cumulative Count : ${cumulativeSaveCount}`);
+        console.log(
+          `STEP3) Saving Market Data... Cumulative Count : ${cumulativeSaveCount}`,
+        );
       }
       marketDataEntitiesToSave = [];
     }
@@ -165,6 +192,10 @@ async function main() {
 
   console.log('STEP3) Fetching Market Data And Saving DONE');
   console.log(`----Market Sync Task Done!!-----`);
+  if (cumulativeFetchErrorCount > 0) {
+    console.log(`Fetch Error Count : ${cumulativeFetchErrorCount}`);
+    exit(100);
+  }
 }
 
 function delay(ms: number) {
@@ -172,7 +203,6 @@ function delay(ms: number) {
 }
 
 main().catch((error) => {
-  console.log('ERROR OCCURED!!!!!!');
-  console.error(error);
+  console.log('UNEXPECTED ERROR OCCURED!!!!!!');
   throw error;
 });
