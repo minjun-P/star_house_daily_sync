@@ -1,6 +1,7 @@
 import {
   Column,
   Entity,
+  Index,
   OneToMany,
   PrimaryGeneratedColumn,
   Unique,
@@ -22,6 +23,11 @@ export class Company {
   exchangeShortName: string;
   @Column()
   nation: string;
+  @Column({ nullable: true })
+  industryKey?: string;
+  @Column({ nullable: true })
+  sectorKey?: string;
+
   // 참조 -> 어느 회사의 거래 데이터인지
   @OneToMany(
     () => StockMarketData,

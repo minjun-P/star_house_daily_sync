@@ -6,6 +6,7 @@
     "build": "tsc",
     "start:market_sync": "npx ts-node src/market_sync/market_sync.ts",
     "start:company_sync": "npx ts-node src/company_sync/company_sync.ts",
+    "start:add_company_key": "npx ts-node src/company_sync/update_company_key_by_csv.ts",
     "typeorm": "typeorm-ts-node-commonjs",
     "typeorm:generate": "typeorm-ts-node-commonjs "
   },

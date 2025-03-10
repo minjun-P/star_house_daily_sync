@@ -10,10 +10,10 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Company } from './company';
-import { parseDateToDashFormat } from '../util';
 
 @Entity()
 @Unique(['company', 'date'])
+@Index('idx_stock_market_data_company_date', ['company', 'date'])
 export class StockMarketData {
   @PrimaryGeneratedColumn()
   id: number;
